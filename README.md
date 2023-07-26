@@ -3,7 +3,7 @@
 ### Example
 ```python
 parser = LVM2_Parser()
-#parser.scan_all()
+parser.scan_all()
 print(parser)
 ```
 ### Output on blank CentOS Stream 9
