@@ -198,6 +198,6 @@ class LVM2():
         with open(path, "w") as outfile:
             outfile.write(json.dumps(json_data, sort_keys=True, indent=4))
 
-if (__name__ == "__main__"):
+# if (__name__ == "__main__"):
     # lvm2 = LVM2()
     # lvm2.output_data("py-report.json")
