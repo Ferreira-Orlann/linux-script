@@ -1,25 +1,48 @@
-import os
 import subprocess
 import json
 
+class LVM2_Commmand_Result:
+    def __init__(self, completed_process):
+        self.__stdout = " ".join(completed_process.stdout.decode().split())
+        self.__stderr = " ".join(completed_process.stderr.decode().split())
+        self.__completed_process = completed_process
+        if (len(completed_process.stderr) > 0 or completed_process.returncode != 0):
+            self.__error = True
+        else:
+            self.__error = False
+        
+    def has_error(self):
+        return self.__error
+        
+    def get_result(self):
+        if (self.__error):
+            return self.__stderr
+        return self.__stdout
+    
+    def get_ccompleted_process(self):
+        return self.__completed_process
 
-def parse(result):
-    if len(result.stderr) > 0:
-        return False, result.args
-    return True, " ".join(result.stdout.decode().split())
+    def get_stdout(self):
+        return self.__stdout
+    
+    def get_stderr(self):
+        return self.__stder
+
+    def get_return_code(self):
+        return self.__completed_process.returncode
 
 
-class LVM2_Size:
+class Size:
     sizes = {"k": 1, "m": 2, "g": 3, "t": 4, "p": 5, "e": 6}
 
-    def __init__(self, size):
-        self.__size = size
+    def __init__(self, bytes):
+        self.__bytes = bytes
 
-    def set_size(self, size):
-        self.__size = size
+    def set_bytes(self, bytes):
+        self.__bytes = bytes
 
-    def get_size(self):
-        return self.__size
+    def get_bytes(self):
+        return self.__bytes
 
     @staticmethod
     def bytesto(bytes, to, bsize=1024):
@@ -30,7 +53,7 @@ class LVM2_Size:
                 mb= 300002347.946
         """
         r = float(bytes)
-        for i in range(LVM2_Size.sizes[to]):
+        for i in range(Size.sizes[to]):
             r = r / bsize
         return r
 
@@ -43,290 +66,138 @@ class LVM2_Size:
                 mb= 300002347.946
         """
         r = float(size)
-        for i in range(LVM2_Size.sizes[to]):
+        for i in range(Size.sizes[to]):
             r = r * bsize
         return int(r)
 
 
-class LVM2_Volume:
+class JsonDataContener:
     def __init__(self):
+        self.__values = {}
+        self.__is_valid = False
+        
+    def get_value(self, key):
+        return self.__values[key]
+
+    def set_value(self, key, value):
+        self.__values[key] = value
+    
+    def is_valid(self):
+        return self.__is_valid
+
+    def set_valid(self, value):
+        self.__is_valid = value
+        
+    def get_all_values(self):
+        return self.__values
+        
+    def __repr__(self) -> str:
+        return str(json.dumps(self.__values, indent = 4))
+    
+
+class Device(JsonDataContener):
+    pass
+
+
+class LVM2_PhysicalVolume(JsonDataContener):
+    pass
+
+
+class LVM2_VolumeGroup(JsonDataContener):
+    pass
+
+
+class LVM2_LogicalVolume(JsonDataContener):
+    pass
+
+
+class LVM2_PhysicalVolume_Segment(JsonDataContener):
+    pass
+
+
+class LVM2_Segment(JsonDataContener):
+    pass
+
+
+class LVM2():
+    def __init__(self):
+        self.__objects = []
+        self.__volumes = {}
+        self.__devices = {}
+        self.scan_all()
+        
+    def create_logical_volume():
         pass
-
-    def set_name(self, name):
-        self.name = name
-
-    def get_name(self):
-        return self.name
-
-    def set_size(self, size):
-        self.size = size
-
-    def get_size(self):
-        return self.size
-
-    def set_uuid(self, uuid):
-        self.uuid = uuid
-
-    def get_uuid(self):
-        return self.uuid
-
-    def __repr__(self):
-        return (
-            "Name: "
-            + str(self.name)
-            + " | Size: "
-            + str(self.size.get_size())
-            + " Bytes | UUID: "
-            + str(self.uuid)
-        )
-
-
-class LVM2_PhysicalVolume(LVM2_Volume):
-    def __init__(self):
-        pass
-
-    def set_group(self, group):
-        self.group = group
-
-    def get_group(self):
-        return self.group
-
-    def __repr__(self):
-            return (
-                "Type: PhysicalVolume | Name: "
-                + str(self.name)
-                + " | Size: "
-                + str(self.size.get_size())
-                + " Bytes | UUID: "
-                + str(self.uuid)
-                + " | Volume Group's Name: "
-                + str(self.group.get_name())
-            )
-
-
-class LVM2_VolumeGroup(LVM2_Volume):
-    def __init__(self):
-        self.__pv = []
-        self.__lv = []
-
-    def add_physical_volume(self, pv):
-        self.__pv.append(pv)
-
-    def add_logical_volume(self, logical_volume):
-        self.__lv.append(logical_volume)
-
-    def __repr__(self):
-        repr = str(
-            "Type: VolumeGroup | Name: "
-            + str(self.name)
-            + " | Size: "
-            + str(self.size.get_size())
-            + " Bytes | UUID: "
-            + str(self.uuid)
-            + " | Logical Volume(s) ("
-            + str(len(self.__lv))
-            + "): "
-        )
-        for lv in self.__lv:
-            repr += str(lv.get_name()) + ", "
-        repr += " | Physical Volume(s) (" + str(len(self.__pv)) + "): "
-        for pv in self.__pv:
-            repr += str(pv.get_name()) + ", "
-        return repr
-
-
-class LVM2_LogicalVolume(LVM2_Volume):
-    def __init__(self):
-        self.mount_point = b''
-        pass
-
-    def set_group(self, group):
-        self.group = group
-
-    def get_group(self):
-        return self.group
-
-    def set_mounted(self, mtn):
-        self.is_mounted = mtn
-
-    def is_mounted(self):
-        return self.is_mounted
-
-    def get_mount_point(self):
-        return self.mount_point
-
-    def set_mount_point(self, point):
-        self.mount_point = point
-
-    def __repr__(self):
-        return (
-            "Type: LogicalVolume | Name: "
-            + str(self.name)
-            + " | Size: "
-            + str(self.size.get_size())
-            + " Bytes | UUID: "
-            + str(self.uuid)
-            + " | Volume Group's Name: "
-            + str(self.group.get_name())
-            + " | IsMounted: "
-            + str(self.is_mounted)
-            + " | Mount Point: "
-            + str(self.mount_point)
-        )
-
-
-class LVM2_Parse_Result:
-    def __init__(self, pvs, vgs, lvs):
-        self.__lvs = lvs
-        self.__pvs = pvs
-        self.__vgs = vgs
-
-    def get_all(self):
-        all = []
-        all.extend(self.__lvs)
-        all.extend(self.__pvs)
-        all.extend(self.__vgs)
-        return all
-
-    def get_logical_volumes(self):
-        return self.__lvs
-
-    def get_physical_volumes(self):
-        return self.__pvs
-
-    def get_volume_groups(self):
-        return self.__vgs
-
-    def get_by_name(self, name):
-        for volume in self.get_all():
-            if volume.get_name() == name:
-                return volume
-            
-    def __repr__(self):
-        repr = ""
-        for volume in parser.get_all():
-            repr += "\n" + str(volume)
-        return repr
-
-class LVM2_Parser(LVM2_Parse_Result):
-    def __init__(self):
-        super().__init__([], [], [])
-
+    
     def scan_all(self):
-        super().__init__([], [], [])
-        self.parse_pvs()
-        self.parse_lvs()
-        self.parse_vgs()
-        valid, mounteds = parse(
-            subprocess.run(["findmnt", "-l", "-J"], capture_output=True)
-        )
-        if valid:
-            temp_mounteds = json.loads(mounteds)["filesystems"]
-            mounteds = {}
-            for mtn_data in temp_mounteds:
-                mounteds[mtn_data["source"]] = mtn_data
-        for volume in self.get_all():
-            if isinstance(volume, LVM2_VolumeGroup):
-                continue
-            vg = self.get_by_name(volume.get_group())
-            volume.set_group(vg)
-            if isinstance(volume, LVM2_LogicalVolume):
-                if (valid):
-                    mtn_data = mounteds.get(
-                        "/dev/mapper/" 
-                        + vg.get_name().decode()
-                        + "-" 
-                        + volume.get_name().decode()
-                    )
-                    if (mtn_data != None):
-                        volume.set_mounted(True)
-                        volume.set_mount_point(bytes(mtn_data["target"], encoding='utf-8'))
-                    else:
-                        volume.set_mounted(False)
-                vg.add_logical_volume(volume)
-            else:
-                vg.add_physical_volume(volume)
-
-    def parse_pvs(self):
-        result = subprocess.run(
-            [
-                "pvs",
-                "--noheadings",
-                "--units",
-                "B",
-                "--separator",
-                ":",
-                "-o",
-                "+pv_uuid",
-            ],
-            capture_output=True,
-        )
-        pvs_data = result.stdout.split(b"\n")
-        pvs = self.get_physical_volumes()
-        for pv_data in pvs_data:
-            if len(pv_data) < 1:
-                break
-            pv = LVM2_PhysicalVolume()
-            splited_data = pv_data.split(b":")
-            pv.set_name(splited_data[0].replace(b" ", b""))
-            pv.set_uuid(splited_data[6])
-            pv.set_group(splited_data[1])
-            pv.set_size(LVM2_Size(splited_data[4].replace(b"B", b"")))
-            pvs.append(pv)
-
-    def parse_vgs(self):
-        result = subprocess.run(
-            [
-                "vgs",
-                "--noheadings",
-                "--units",
-                "B",
-                "--separator",
-                ":",
-                "-o",
-                "+vg_uuid",
-            ],
-            capture_output=True,
-        )
-        vgs_data = result.stdout.split(b"\n")
-        vgs = self.get_volume_groups()
-        for vg_data in vgs_data:
-            if len(vg_data) < 1:
-                break
+        for obj in self.__objects:
+            obj.set_valid(False)
+        self.__objects.clear()
+        self.__volumes.clear()
+        self.__devices.clear()
+        self.scan_devices()
+        self.scan_lvm2()
+        
+    def scan_devices(self):
+        report_cmd_result = self.exec_cmd("lsblk -lnOJb")
+        if (report_cmd_result.has_error()):
+            raise Exception("Command Error: lsblk -lnOJb")
+        lsblk_data_json = json.loads(report_cmd_result.get_result())["blockdevices"]
+        for contener_data in lsblk_data_json:
+            device = Device()
+            self.parse_object(contener_data, device)
+            self.__devices[device.get_value("name") + " | " + device.get_value("kname") + " | " +device.get_value("path")] = device
+            self.__objects.append(device)
+        
+    def scan_lvm2(self):
+        report_cmd_result = self.exec_cmd("lvm fullreport --reportformat json --units B")
+        if (report_cmd_result.has_error()):
+            raise Exception("Command Error: lvm fullreport --reportformat json --units B")
+        report_data_json = json.loads(report_cmd_result.get_result())["report"][0]
+        for contener_data in report_data_json["vg"]:
             vg = LVM2_VolumeGroup()
-            splited_data = vg_data.split(b":")
-            vg.set_name(splited_data[0].replace(b" ", b""))
-            vg.set_uuid(splited_data[7])
-            vg.set_size(LVM2_Size(splited_data[5].replace(b"B", b"")))
-            vgs.append(vg)
-
-    def parse_lvs(self):
-        result = subprocess.run(
-            [
-                "lvs",
-                "--noheadings",
-                "--units",
-                "B",
-                "--separator",
-                ":",
-                "-o",
-                "+lv_uuid",
-            ],
-            capture_output=True,
-        )
-        lvs_data = result.stdout.split(b"\n")
-        lvs = self.get_logical_volumes()
-        for lv_data in lvs_data:
-            if len(lv_data) < 1:
-                break
+            self.parse_object(contener_data,vg)
+            self.__volumes[vg.get_value("vg_name")] = vg
+            self.__objects.append(vg)
+        for contener_data in report_data_json["pv"]:
+            pv = LVM2_PhysicalVolume()
+            self.parse_object(contener_data,pv)
+            self.__volumes[pv.get_value("pv_name")] = pv
+            self.__objects.append(pv)
+        for contener_data in report_data_json["lv"]:
             lv = LVM2_LogicalVolume()
-            splited_data = lv_data.split(b":")
-            lv.set_name(splited_data[0].replace(b" ", b""))
-            lv.set_group(splited_data[1])
-            lv.set_uuid(splited_data[12])
-            lv.set_size(LVM2_Size(splited_data[3].replace(b"B", b"")))
-            lvs.append(lv)
+            self.parse_object(contener_data,lv)
+            self.__volumes[lv.get_value("lv_name")] = lv
+            self.__objects.append(lv)
+        for contener_data in report_data_json["pvseg"]:
+            pvseg = LVM2_PhysicalVolume_Segment()
+            self.parse_object(contener_data,pvseg)
+            self.__objects.append(pvseg)
+        for contener_data in report_data_json["seg"]:
+            seg = LVM2_Segment()
+            self.parse_object(contener_data,seg)
+            self.__objects.append(seg)
+    
+    def parse_object(self, data, lvm2_obj=JsonDataContener()):
+        for key, value in data.items():
+            lvm2_obj.set_value(key, value)
+        
+    def exec_cmd(self, cmd):
+        return LVM2_Commmand_Result(subprocess.run(cmd.split(' '),capture_output=True))
+    
+    def get_all(self):
+        return self.__objects
+    
+    def output_data(self, path="data.json"):
+        json_data = {}
+        for obj in self.__objects:
+            name = obj.__class__.__name__
+            if (name not in json_data):
+                json_data[name] = []
+            json_data[name].append(obj.get_all_values())
+        with open(path, "w") as outfile:
+            outfile.write(json.dumps(json_data, sort_keys=True, indent=4))
 
-# parser = LVM2_Parser()
-# parser.scan_all()
-# print(parser)
+if (__name__ == "__main__"):
+    # lvm2 = LVM2()
+    # lvm2.output_data("py-report.json")
